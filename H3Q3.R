@@ -1,61 +1,194 @@
 library(ggplot2)
+library(foreach)
+library(LICORS)
+library(caret)
 
 #We need to import the data on wine chemical properties and two other variables.
 wine_df = read.csv("C:/Users/Nyarlathotep/Documents/Econ - Data Mining/Exercise 3/wine.csv")
 
-#We need to see what our properties are
-colnames(wine_df)
+#The purpose of this exercise is to determine whether unsupervised learning on
+#a set of chemical properties can be used to categorize data in such a way
+#that it aligns with privileged outcome omitted from the data set. These
+#privileged outcomes are the color of wine and the overall quality. We will
+#also comment on which dimension reduction technique is best for this task.
 
 #We will subset the data so that only the chemical properties are considered.
 wine_chem = wine_df[1:11]
-colnames(wine_chem)
 
-#normalize the data to adjust for scale.Otherwise, measuring distance between points
+#normalize the data to adjust for scale. Otherwise, measuring distance between points
 #will not be meaningful.
 wine_chem_nm = scale(wine_chem, center = TRUE, scale = TRUE)
 
-#we will also need to rescale later, so we will define these constants.
-cluster_mu = attr(wine_chem_nm,"scaled:center")
-cluster_sig = attr(wine_chem_nm, "scaled:scale")
+#First, we will examing how clustering can be used to determine color.
 
-#we want to seperate reds from whites, so we will form two clusters. Hopefully, we can
-# use this as a basis to classify the wine colors.
+#run k-means with 2 clusters and 25 starts.
+clust_k2 = kmeanspp(wine_chem_nm, 2, nstart = 25)
 
-#run k-means with 2 clusters and 80 starts.
-clust1 = kmeans(wine_chem_nm, 2, nstart = 80)
 
-# Now, we want to do some visualization, but neet to choose the
-# proper method of doing so. Rather than a historam, let's do
-# a scatter plot. To do this, for each chemical property, we
-# need to choose one chemical property to compare the rest against.
-# Ideally, the chosen property will have no correlation with color.
+#Let's look at our clusters.
+which(clust_k2$cluster ==1)
+which(clust_k2$cluster ==2)
+sum(clust_k2$withinss)
+
+
+#Before visualizing the clusters, we need to narrow down the variables that we
+#want to compare. Let's look at correlation between each chemical property
+#an a given wine color.
 
 cor(wine_chem, as.numeric(wine_df$color))
 
-# Note that here higher correlation means that the property is more closely
-# associated with white wine.
+#Note that here higher positive correlation means that the property is more closely
+#associated with white wine. We will choose the covariates with the greatest
+#correlation (positive or negative) with wine color. In this case, it would be
+#volatile acidity, chlorides, total sulfur dioxide, and sulphates.
 
-# As we see, alcohol content has almost no correlation with color, as 
-# we can futher see by the histogram below.
+#Comparing select variables by wine color.
+pairs(wine_df[, c(2,5,7,10)], col = c("red", "grey")[wine_df$color],
+      main = "Chemical Properties of wine: Red vs White")
 
-#Histogram of wine colors over alcohol content and other variables.
-ggplot(wine_df, aes(x= alcohol, fill= color)) +
-  geom_histogram( color="#e9ecef", alpha=0.6, position = 'fill') +
-  scale_fill_manual(values=c("red", "white")) +
-  labs(fill="")
+#Now, let's look at cluster.
+pairs(wine_df[, c(2,5,7,10)], col = c("red", "grey")[clust_k2$cluster],
+      main = "Chemical Properties of wine: Cluster 1 vs Cluster 2")
 
-#Now we rescale and use a scatter plot for the remaining chemical properties.
-# qplot is in the ggplot2 library
-qplot(alcohol, fixed.acidity, data = wine_df, color=factor(clust1$cluster))
-qplot(alcohol, citric.acid, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, residual.sugar, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, chlorides, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, free.sulfur.dioxide, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, total.sulfur.dioxide, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, density, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, pH, data=wine_df, color=factor(clust1$cluster))
-qplot(alcohol, sulphates, data=wine_df, color=factor(clust1$cluster))
+#At least on sight, the clustering alogrithm seems to seperate the red
+#and white wines effectively.
+
+#We assign red wine to cluster 1 and white wine to cluster 2, and show the 
+#confusion matrix.
+y_hat1 = clust_k2$cluster
+y_hat1 = ifelse(y_hat1 ==1, "red", "white")
+
+confusionMatrix(data = as.factor(y_hat1), reference = wine_df$color)
+
+#To be thurough, we will run the null model.
+
+confusionMatrix(data = as.factor(rep("white", length(clust_k2$cluster))), reference = wine_df$color)
+
+#As we see, from the confusion matrix, clustering seems to be a fairly good
+#method of sorting red and white wines. 
+
+#However, clustering does not seem to be the most appropriate method of determining
+#if we are interested in determining what chemical balance is associated with a given
+#wine color. Let's consider this while we look at another dimension reduction 
+#technique, principle components analysis.
+
+#PCA allows for mixed membership of covariates to construct principle components.
+
+pc_chem = prcomp(wine_chem_nm)
+
+pc_chem$rotation[,1]
+
+#Now, we want to do some visualization.
+
+qplot(pc_chem$x[,1], pc_chem$x[,2], 
+      color=wine_df$color, xlab='Component 1', 
+      ylab='Component 2',geom = c("point", "abline"),intercept = 2.5, slope = 2)
+
+#We see that red and white wine split roughly along the line cp2 = cp1 - 2.5. We can
+#take this information and see if a point lands on either side of this line to 
+#determine whether the wine is red or white.
+
+y_hat2 = pc_chem$x[,2] - 2*pc_chem$x[,1] - 2.5
+y_hat2 = ifelse(y_hat2 > 0, "red", "white")
+
+confusionMatrix(data = as.factor(y_hat2), reference = wine_df$color)
+
+#Again, this method is fairly accurate. We could
+#fine tune the line to get a better prediction, but we are not sure how possible
+#this would by just looking at unsupervised information.Even the way we constructed
+#y_hat2 above required us to peek at that shape of the data.
+
+#Now, let's move on to classifying wine by quality instead of color.
+
+#Setting k = 10 may work since wines are rated on a scale of 1 to 10.
+#But, first, let's see if k = 10 would be the "good choice" for k using an
+#elbow plot.
+k_grid = seq(2,20, by = 1) #vector containing various values of k
+
+SSE_grid = foreach(k = k_grid, .combine = 'c') %do% {
+  cluster_k = kmeans(wine_chem_nm, k, nstart = 50)
+  cluster_k$tot.withinss
+}
+
+plot(k_grid, SSE_grid)
+
+#From the elbow plot, we see numerious points that be considered the "elbow," but
+#k = 10 looks to work reasonably well. Let's cluster the data.
+clust_k10 = kmeanspp(wine_chem_nm, 10, nstart = 25)
+
+cor(wine_chem, as.numeric(wine_df$quality))
+
+#Note, there are not that many chemical properties with a particular strong 
+#corollation with quality.
 
 
-# Let's come up with a model and see it's confusion matrix.
-# confusionMatrix(predicted, actual)
+#Like previously, here is a set of pairwise graph of select chemical properties,
+#fill is by quality score. Note, that while the wines were score on a scale of 1 to
+#10, only scores of 3 through 9 were given.
+
+pairs(wine_df[, c(2,5,8,11)], 
+      col = c("dark red", "red","pink", "grey", "blue", "dark blue", "purple")[wine_df$quality],
+      main = "Chemical Properties of Wine: Quality Scores",
+      oma=c(5,5,5,15))
+par(xpd = TRUE)
+legend("right", 
+       fill = c("dark red", "red","pink", "grey", "blue", "dark blue", "purple"), 
+       legend = c( levels(as.factor(wine_df$quality))),
+       title = "Score")
+
+#We cannot see any "clean" clusters from the plots.#What if we were less ambitious 
+#and only looked at "high quality" and "low "quality" wines. Here, "high quality" 
+#corresponds to scores 7 and higher, while "low quality" corresponds to scores 6 or 
+#lower.
+
+wine_qual = wine_df
+wine_qual$quality = ifelse(wine_df$quality < 7, "low", "high")
+
+pairs(wine_qual[, c(2,5,8,11)], 
+      col = c("red","grey")[as.factor(wine_qual$quality)],
+      main = "Chemical properties of Wine: High vs Low Quality")
+legend("right", 
+       fill = c("red","grey"), 
+       legend = c( levels(wine_df$color)))
+
+pairs(wine_qual[, c(2,5,8,11)], 
+      col = c("grey","red")[clust_k2$cluster],
+      main = "Chemical properties of Wine: Cluster 1 vs Cluster 2")
+
+#When just considering a binary choice between high and low quality wines verus
+#k = 10 many clusters, the clustering algorithm preforms better, but not necessarily
+#well. Let's run a confusion matrix, just to check.
+
+y_hat3 = clust_k2$cluster
+y_hat3 = ifelse(clust_k2$cluster == 1, "low", "high")
+
+confusionMatrix(data = as.factor(y_hat3), reference = as.factor(wine_qual$quality))
+
+#Our accuracy is 61%, which is worse than our null model.
+#PCA may be more appropriate for this classificiation problem. We've already run 
+#our PCA algorith, so let's
+#go straight to the plots.
+
+qplot(pc_chem$x[,1], pc_chem$x[,2], 
+      color=wine_df$quality, xlab='Component 1', 
+      ylab='Component 2')
+#Let's look at a few more pair-wise comparision.
+
+pairs(pc_chem$x[, c(1,2,3,4)],
+      col = c("dark red", "red", "blue", "dark blue")[wine_df$quality])
+
+#Again, there is no clear delineation what properties correspond to quallity
+#rankings. Again, let's look at sorting on just "high" and "low" quality wines.
+
+qplot(pc_chem$x[,1], pc_chem$x[,2], 
+      color= factor(wine_qual$quality), xlab='Component 1', 
+      ylab='Component 2',geom = c("point", "abline"))
+
+#There is not clean divide among the types of wine.To verify, let's look at
+#pairwise plots for the first four principle components.
+
+pairs(pc_chem$x[, c(1,2,3,4)],
+      col = c("red", "blue")[as.factor(wine_qual$quality)])
+
+#It doesn't seem that PCA is capable of sorting on quality in this
+#instance.
