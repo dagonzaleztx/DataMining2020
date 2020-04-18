@@ -1,5 +1,10 @@
 # DataMining2020
 
+#4/18/20 @ 6:00 pm
+
+#I commited most recent changes to question 3. In a pinch, it could be turned in as is after being converted to markdown. However,
+#I am still looking to polish the graphs and double check for grammatic mistakes. Analysis is complete.
+
 #4/11/20
 #I'm currently working on question 3 for homework 3. It asks me to classify different types of wine through clustering and principle
 #components analysis (CPA). He haven't started the CPA chapter yet; Dr. Scott only briefly mentioned how it works.
