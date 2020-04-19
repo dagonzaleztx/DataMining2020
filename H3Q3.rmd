@@ -1,8 +1,8 @@
 ---
 title: "H3Q3"
-author: "David Gonzalez"
-date: "4/18/2020"
-output: github_document
+Name: "David Gonzalez"
+Date: "4/18/2020"
+md_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -64,6 +64,7 @@ legend("right",
        title = "cluster")
 
 ```
+
 At least on sight, the clustering algorithm seems to separate the red and white wines effectively.
 
 We assign red wine to cluster 1 and white wine to cluster 2, and show the 
@@ -106,6 +107,7 @@ qplot(pc_chem$x[,1], pc_chem$x[,2],
   labs(color = 'color')
 
 ```
+
 We see that red and white wine split roughly along the line component2 = component1 - 2.5. We can take this information and see if a point lands on either side of this line to determine whether the wine is red or white.
 
 ```{R echo = FALSE}
@@ -119,22 +121,9 @@ This method is fairly accurate. We could fine tune the line to get a better pred
 
 Now, let's move on to classifying wine by quality instead of color.
 
-Using k-means ++ and setting k = 10 may work since wines are rated on a scale of 1 to 10. But, first, let's see if k = 7 would be the "good choice" for k using an elbow plot. We will see whay later as to why we want to choose 7 over 10.
+Using k-means ++ and setting k = 10 may work since wines are rated on a scale of 1 to 10. But, we will let k = 7. We will see whay later as to why we want to choose 7 over 10.
 
-```{R echo = FALSE}
-k_grid = seq(2,20, by = 1) #vector containing various values of k
-
-SSE_grid = foreach(k = k_grid, .combine = 'c') %do% {
-  cluster_k = kmeans(wine_chem_nm, k, nstart = 50)
-  cluster_k$tot.withinss
-}
-
-plot(k_grid, SSE_grid, 
-     main = "K values vs Within Sum of Squares Error",
-     xlab = "k-value",
-     ylab = "SS Error")
-```
-From the elbow plot, we see numerous points that be considered the "elbow," but k = 7 looks to work reasonably well. Let's cluster the data, find the covariates of greatest interest, and visualize the clusters.
+Let's cluster the data, find the covariates of greatest interest, and visualize the clusters.
 
 ```{R echo = FALSE}
 clust_k7 = kmeanspp(wine_chem_nm, 7, nstart = 25)
@@ -168,6 +157,7 @@ legend("right",
        title = "Score")
 
 ```
+
 We cannot see any "clean" clusters from the plots. What if we were less ambitious and only looked at "high quality" and "low "quality" wines? Here, "high quality" corresponds to scores 7 and higher, while "low quality" corresponds to scores 6 or lower.
 
 ```{R echo = FALSE}
@@ -193,6 +183,7 @@ legend("right",
        title = "Cluster")
 
 ```
+
 When just considering a binary choice between high and low quality wines versus k = 10 many clusters, the clustering algorithm preforms better, but not necessarily well. Let's run a confusion matrix, just to check.
 
 ```{R echo = FALSE}
@@ -227,6 +218,7 @@ legend("right",
        title = "Score")
 
 ```
+
 Again, there is no clear delineation what properties correspond to quality rankings. Again, let's look at sorting on just "high" and "low" quality wines.
 
 ```{R echo = FALSE}
@@ -239,6 +231,7 @@ qplot(pc_chem$x[,1], pc_chem$x[,2],
   labs(color = "Quality")
 
 ```
+
 There is not clean divide among the types of wine. To verify, let's look at pairwise plots for the first four principle components.
 
 ```{R echo = FALSE}
@@ -252,4 +245,5 @@ legend("right",
        title = "Quality")
 
 ```
+
 It doesn't seem that PCA is capable of sorting high vs. low quality wine.
