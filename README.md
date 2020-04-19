@@ -1,5 +1,9 @@
 # DataMining2020
 
+#4/18/2020 @9:30 pm
+
+#markdown file and associated files commmited.
+
 #4/18/20 @ 6:00 pm
 
 #I commited most recent changes to question 3. In a pinch, it could be turned in as is after being converted to markdown. However,
