@@ -2,7 +2,7 @@
 
 #4/18/2020 @9:30 pm
 
-#markdown file and associated files commmited.
+#markdown file and associated files commited.
 
 #4/18/20 @ 6:00 pm
 
